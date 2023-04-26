@@ -34,5 +34,5 @@ IV) To plot the results, use the following files in folder Generate_plots:
 3. `plot_eeg_head_example.py`: Plot variance in each channel
 4. `plot_mmd_distance_matrices.py`: Plot distance matrices
 
-"Paper results are available in the `output_files` folder. Distance matrices have to be built with the code, or requested, because their size does not allow us to save them in the GitHub repository."
+Paper results are available in the `output_files` folder. Distance matrices have to be built with the code, or requested, because their size does not allow us to save them in the GitHub repository.
 
