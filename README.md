@@ -2,6 +2,8 @@
 
 This repository contains code to perform age prediction using EEG from the HarMNqEEG (https://doi.org/10.1016/j.neuroimage.2022.119190) data set and Maximum Mean Discrepancy with different kernels.
 
+Also: Multinational EEG cross-spectrum and anonymized metadata come from 9 countries, 12 devices, and 14 sites, including 1966 subjects, and is hosted in \url{https://www.synapse.org/} with id: $syn26712693$. Complete access is possible through registration and login to the system.
+
 ## Files included
 
 I) To generate Maximum Mean Discrepancy Distance matrices, use the code in the folder `Estimation_of_distance_matrices`:
