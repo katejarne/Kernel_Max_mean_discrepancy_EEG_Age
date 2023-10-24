@@ -4,4 +4,4 @@ You need to create the following directories to run the code to build the distan
 2) out_combined (combined distance matrices will be created)
 3) histos (output histograms will be created
 
-input directory shoud be yor .mat files from the dataset (raw data)
+input directory should be your .mat files from the dataset (raw data)
