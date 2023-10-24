@@ -12,11 +12,10 @@
 
 import numpy as np
 from sklearn import metrics
-import time
 
-# Fun definition for Maximum Mean Discrepancy for the 4 different Kernel
+# Function definition for Maximum Mean Discrepancy for the 4 different Kernel
 
-#https://github.com/jindongwang/transferlearning/blob/master/code/distance/mmd_numpy_sklearn.py
+# https://github.com/jindongwang/transferlearning/blob/master/code/distance/mmd_numpy_sklearn.py
 
 def mmd_linear(X, Y):
     """MMD using linear kernel (i.e., k(x,y) = <x,y>)
@@ -35,7 +34,6 @@ def mmd_linear(X, Y):
     """
     delta = X.mean(0) - Y.mean(0)
     return delta.dot(delta.T)
-
 
 def mmd_rbf(X, Y, gamma=1.0):
     """MMD using rbf (gaussian) kernel (i.e., k(x,y) = exp(-gamma * ||x-y||^2 / 2))
@@ -78,19 +76,17 @@ def mmd_cosi(X,Y):
     return XX.mean() + YY.mean() - 2 * XY.mean()
 
 if __name__ == '__main__':
-    #Some tests
+    # Some tests
     a = np.arange(1, 10).reshape(3, 3)
     b = [ [4, 3, 2], [0, 2, 5],[1, 1, 8],[7, 6, 5]]
     b = np.array(b)
     print("a: ",a)
     print("b:", b)
-    print(mmd_linear(a, b)) # 6.0
-    print(mmd_rbf(a, b))    # 0.5822
-    print(mmd_cosi(a,b))    #0.024
-    vector1=np.array([[4, 3, 2]])
-    vector2=np.array([[2, 4, 1]])
+    print(mmd_linear(a, b))  # 6.0
+    print(mmd_rbf(a, b))     # 0.5822
+    print(mmd_cosi(a,b))     # 0.024
+    vector1 = np.array([[4, 3, 2]])
+    vector2 = np.array([[2, 4, 1]])
     print(mmd_poly(a,b))
-    print("len(vector1[0]",len(vector1[0]))
-    print("d",mmd_poly(vector1,vector2))
-    print("er",mmd_poly_err(vector1,vector2))#/(len(vector1[0])))
-    
+    print("len(vector1[0]", len(vector1[0]))
+    print("d", mmd_poly(vector1,vector2))
