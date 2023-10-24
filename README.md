@@ -1,4 +1,6 @@
-# Kernel Maximum Mean Discrepancy EEG used for Age prediction:
+# Kernel Mean Embbeading with EEG frequency spectrum used for Age prediction (KMER):
+
+Framework used for the paper: "Predicting subject traits from brain spectral signatures: a case for brain ageing"
 
 This repository contains code to perform age prediction applying BR, KRR and KMER using EEG from the HarMNqEEG (https://doi.org/10.1016/j.neuroimage.2022.119190) data set based on the frequency content and using  Maximum Mean Discrepancy with different kernels.
 
