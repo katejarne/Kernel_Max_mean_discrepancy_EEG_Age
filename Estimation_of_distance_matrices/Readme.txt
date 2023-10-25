@@ -6,7 +6,7 @@ You need to create the following directories to run the code to build the distan
 
 input directory should be your .mat files from the dataset (raw data)
 
-Run main_eeg.py to generate the matrices per channel
+Run main_eeg.py to generate the matrices per channel (and the Feature file and individual histograms)
 Run main_eeg_for_combined.py to generate the combined distance matrices (not implemented in the paper)
 
 The definition of kernel distances is in mmd_def.py
