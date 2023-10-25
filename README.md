@@ -10,11 +10,12 @@ Multinational EEG cross-spectrum and anonymized metadata come from 9 countries, 
 The framework consists of 3 parts: one to estimate distance matrices in the file `Estimation_of_distance_matrices`, the other to generate the plots from the paper `Generate_plots` and one part to make the predictions using  three methods (`main`).
 
 ## Dependencies
-Numpy \\
-Scipy\\
-Sckit learn\\
-MNE-Python (for data visualization)
+Sure! Here are the software names in markdown format with links:
 
+- [Numpy](https://numpy.org/)
+- [Scipy](https://www.scipy.org/)
+- [Scikit-learn](https://scikit-learn.org/)
+- [MNE-Python (for data visualization)](https://mne.tools/stable/index.html)
 ## Files included
 
 ----------------------------------------------
