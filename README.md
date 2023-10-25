@@ -11,8 +11,11 @@ The framework consists of 3 parts: one to estimate distance matrices in the file
 
 ## Dependencies
 Numpy 
+
 Scipy
+
 Sckit learn
+
 MNE-Python (for data visualization)
 
 ## Files included
