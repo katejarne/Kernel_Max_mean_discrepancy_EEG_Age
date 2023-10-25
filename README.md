@@ -1,12 +1,14 @@
-# Kernel Mean Embbeading with EEG frequency spectrum used for Age prediction (KMER):
 
-Framework used for the paper: "Predicting subject traits from brain spectral signatures: a case for brain ageing"
+# Kernel Mean Embbeading Regression (KMER) with EEG frequency spectrum used for Age prediction:
+
+This is the framework used for the paper "Predicting subject traits from brain spectral signatures: a case for brain ageing"
 
 This repository contains code to perform age prediction applying BR, KRR and KMER using EEG from the HarMNqEEG (https://doi.org/10.1016/j.neuroimage.2022.119190) data set based on the frequency content and using  Maximum Mean Discrepancy with different kernels.
 
 Multinational EEG cross-spectrum and anonymized metadata come from 9 countries, 12 devices, and 14 sites, including 1966 subjects, and is hosted in \url{https://www.synapse.org/} with id: $syn26712693$. Complete access is possible through registration and login to the system.
 
-The framework consists of 3 parts: one to estimate distance matrices in the file `Estimation_of_distance_matrices`, the other to generate the plots from the paper `Generate_plots` and the part to make the predictions using the three methods (`main`).
+The framework consists of 3 parts: one to estimate distance matrices in the file `Estimation_of_distance_matrices`, the other to generate the plots from the paper `Generate_plots` and one part to make the predictions using  three methods (`main`).
+
 ## Files included.
 
 ----------------------------------------------
@@ -17,7 +19,7 @@ I) To generate Maximum Mean Discrepancy Distance matrices, use the code in the f
 
 For both cases, the HarMNqEEG data set is needed. Download it from: [https://10.0.28.135/syn26712693](https://10.0.28.135/syn26712693) as indicated in the original paper: [https://www.synapse.org/#!Synapse:syn26712693/files/](https://www.synapse.org/#!Synapse:syn26712693/files/).
 
-Code is commented in detail.
+The code is commented in detail.
 
 The following functions are called:
 - `mmd_def.py`: Definition of MMD empirical Distance for each kernel.
