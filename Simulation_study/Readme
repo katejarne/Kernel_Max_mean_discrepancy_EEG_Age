@@ -1,0 +1,11 @@
+1) The `two_class_distribution_generator.py` code allows you to generate a set of simulations as detailed 
+in the code, to perform an accuracy study on a grid of values. The `two_class_distribution_generator.py` 
+code generates the feature files corresponding to these simulations.
+
+2) The code `synthetic_mmd_matrix.py` generates the MMD matrices used as input in the KMER method.
+
+3) If you do not want to do the simulations from scratch, there is a ready-made package of simulations 
+in the compressed file that contains a certain grid for which predictions must be made. You should 
+run `KMER_for_syntetic.py` or `KRR_for_syntetic.py` If you have all the prediction values and save them
+in the "output_files" directory. After that, you can run the code: `matrix_from_class_prediction.py` 
+for the predictions made with KMER or KRR and see in matrix form in which region of parameters the methods are better.
