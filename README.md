@@ -42,7 +42,7 @@ III) To estimate age using histograms as features, run the following code with t
 `BR_ind_channels.py`
 `KRR_ind_channels.py` for a kernelized version
 
-Note: II) and III) implement a leave-one-site-out cross-validation strategy to estimate the best model
+Note: II) and III) implement a cross-validation strategy to estimate the best model. Code respects group structure for CV.
 
 IV) To plot the results, use the following files in the folder Generate_plots with its readme.txt document
 
