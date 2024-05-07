@@ -1,13 +1,13 @@
 ####################################################################################################
-#                   C. Jarne 2023 Analysis Group of D. Vidahurre  @cfin                            #
+#                   C. Jarne 2024 Analysis Group of D. Vidahurre  @cfin                            #
 #                                                                                                  #
 # This  Python code performs kernel ridge regression for EEG Distance matrices in directory (KMER) #
 # The script starts by defining a list of folds index (which correspond to each site),             #
 # then it reads the files from a directory, loads the target values and masks the data based       #
 # on age or gender, then iterates over the files in the directory. For each file, it loads the     #
 # MMD distance matrix and applies the mask, then iterates over the folds, splits the data          #
-# into training and testing sets, trains a kernel ridge regression model on the training data,     #
-# predicts the target values for the testing data, and saves the model and the predicted values.   #
+# into training and testing sets, trains a KRR model on the training data, predicts the target     #
+# values for the testing data, and saves the model and the predicted values.                       #
 # Finally, it saves the results to a text file of the R-squared score, and calculates              #
 # Pearson/Sperman correlation coefficient between the predicted and actual values.                 #
 #                                                                                                  #
@@ -19,10 +19,15 @@
 ####################################################################################################
 
 import os
+import re
 import numpy as np
+from sklearn.linear_model import Ridge
 from sklearn.kernel_ridge import KernelRidge
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error,  mean_absolute_error
+from sklearn.model_selection import GridSearchCV, KFold, GroupKFold,LeaveOneGroupOut,StratifiedKFold
 from scipy.stats import pearsonr, spearmanr
+import matplotlib.pyplot as plt
+from scipy import stats
 
 # Folds defined by site (batches)
 folds_struct = [
@@ -45,18 +50,29 @@ folds_struct = [
 # Get the list of files in the directory
 
 current_directory = os.path.dirname(__file__)
-directory = current_directory + '/input_files/EEG_normalized_distance_matrices/'
+# directory = current_directory + '/input_files/EEG_normalized_distance_matrices/'
+# directory = current_directory + '/Estimation_of_distance_matrices/out/kernel_pol/'
+directory = current_directory + '/Estimation_of_distance_matrices/out/kernel_gauss/'
+# directory = current_directory + '/Estimation_of_distance_matrices/out/kernel_lineal/'
 files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
 
 # Load target values (Feature file)
-data_ = np.loadtxt(current_directory+'/input_files/Feature_file/features_ok.txt', delimiter='\t', usecols=(3))
+
+data_ = np.loadtxt(current_directory+'/input_files/Feature_file/features_ok.txt', delimiter='\t', usecols=3)
 data = np.nan_to_num(data_)
 
-gender = np.loadtxt(current_directory+'/input_files/Feature_file/features_ok.txt', delimiter='\t', usecols=(2), dtype=str)
+gender = np.loadtxt(current_directory+'/input_files/Feature_file/features_ok.txt',
+                    delimiter='\t', usecols=2, dtype=str)
 print("gender", gender)
 
+site = np.loadtxt(current_directory+'/input_files/Feature_file/features_ok.txt',
+                  delimiter='\t', usecols=1, dtype=str)
+print("site", site)
+
 # Bolean mask to select age groups, gender or other features
-mask = (data >= 5)  # for gender sel (gender == "['F']")
+mask = (data >= 5)  # &  (data <= 25)
+# mask = (data >= 5)  & (gender == "['M']")# for gender sel (gender == "['F']")
+# mask = (data >= 5) & (site == "NewYork")
 
 # Select only the values of "data" and "X" that meet the mask condition
 data_masked = data[mask]
@@ -65,19 +81,33 @@ data_masked = data[mask]
 indices_mask = np.where(mask)[0]
 print("index len i. e. number of individuals that match the criteria: ", len(indices_mask))
 
-# Number of bootstrapping iterations (For uncertanty estimation)
-n_bootstrap = 5
-
 folds_struct_filtered = []
+results = []
 
-# alpha values
-alpha_values = [100, 50, 0.3, 0.04, 2, 10, 1, 0.5, 0.001, 0.03, 0.1, 0.05, 0.2, 0.7, 0.01, 0.0001, 0.000001, 0.0000001]
+# Hyperparameters to tune
+
+param_grid = {'alpha': [100, 50, 30, 20, 5, 0.3, 0.04, 2, 10, 1, 0.5, 0.001, 0.03, 0.1, 0.05, 0.2,
+                        0.7, 0.01, 0.0001, 0.000001, 0.0000001],
+              'gamma': [0.0001, 0.001, 0.01, 0.05,0.5, 0.1, 1.0,
+                        10.0, 20, 30, 50, 100, 150, 200, 500, 1000, 100000], 'kernel': ['rbf']}
+
+Model = KernelRidge()
 
 for fold in folds_struct:
-    print("fold index content", fold)
+    print("Fold index content", fold)
     folds_struct_filtered_ = [i for i in fold if mask[i]]
-    print("fold filtered index content", folds_struct_filtered_)
+    print("Fold filtered index content", folds_struct_filtered_)
     folds_struct_filtered.append(list(folds_struct_filtered_))
+
+groups = []
+
+for i, fold in enumerate(folds_struct_filtered):
+    fold_masked = [idx for idx in fold if idx in indices_mask]
+    groups.extend([i] * len(fold_masked))
+
+# Convert to  numpy array
+groups = np.array(groups)
+print("Groups", groups)
 
 for file in files:
     # load MMD matrix
@@ -85,177 +115,192 @@ for file in files:
     filename = os.path.splitext(file)[0]
     X_masked = X[mask]
     bootstrap_scores = []  # I will use only for uncertainty estimation in Accuracy
+    print("Processing File: ", filename)
+    combined_y_test = []
+    combined_outputs = []
 
-    # Applying bootstrapping for each file (crating list bootstrap iteration)
-    # This is only for uncertainty estimation on the R^2 value from line 83 to 164
-    for _ in range(n_bootstrap):
-        models = []
-        outputs = []
-        scores = []
-        y_total_test_masked = []
+    r2_scores = []
+    predictions_per_fold = []
 
-        # Applying bootstrapping for each list in folds_struct
-        folds_struct_bootstrap = []
-        best_alphas_per_fold_b = {}   # Dictionary to store the best alpha for each fold
-        best_models_per_fold_b = {}   # Dictionary to store the best model for each fold
-        best_outputs_per_fold_b = {}  # Dictionary to store the best outputs for each fold
-        best_y_test_per_fold_b = {}   # Dictionary to store the corresponding true labels for each fold
-        best_scores_per_fold_b = {}   # Dictionary to store the best score for each fold
-        print("bootstrap iteration", _)
-        # For uncertainty estimation in r^2 using bootstrapping
-        for fold_list in folds_struct_filtered:
-            indices = np.random.choice(fold_list, size=len(fold_list), replace=True)
-            fold_bootstrap = indices
-            folds_struct_bootstrap.append(list(fold_bootstrap))
+    # For random folds use the following:
+    group_kfold_r = KFold(n_splits=10, shuffle=True)
 
-        # Iterating over folds_struct
-        for fold, fold_pre in zip(folds_struct_bootstrap, folds_struct_filtered):
+    # For fixed folds use the following:
+    group_kfold = GroupKFold(n_splits=10)
 
-            best_alpha_b = None
-            best_score_alpha_b = float('-inf')  # Initialize with a very low score
-            best_model_b = None
-            best_outputs_b = None
-            best_y_test_b = None
+    results_list = []
 
-            fold_masked = fold    # from boostraped filtered fold
-            fold_pre_ = fold_pre  # from fold filtered fold
+    pattern = re.compile(r'matrix(\d+)')
+    match = pattern.search(filename)
+    if match:
+        k = int(match.group(1))
+    else:
+        k = None
 
-            # index definition
-            test_indices = fold_masked
-            train_indices = [i for i in indices_mask if i not in fold_masked]
+    #  For fixed folds use the following:
+    inner_cv = GroupKFold(n_splits=4)
+    grid_search = GridSearchCV(Model, param_grid, scoring="r2", cv=inner_cv, verbose=3)
 
-            # Training data:
-            X_train_masked = X[train_indices][:, train_indices]
-            data_train_masked = data[train_indices]
+    for i, (train_index, test_index) in enumerate(group_kfold.split(X_masked, data_masked, groups)):
 
-            # testing data:
-            x_test_masked = X[test_indices][:, train_indices]
-            y_test_masked = data[test_indices]
-            
-            for alpha in alpha_values:
-                print(f"Training models for alpha = {alpha}")
-                # Create and fit the model
-                model2 = KernelRidge(alpha=alpha, kernel='rbf', gamma=0.1).fit(X_train_masked, data_train_masked)
-
-                # Make predictions on the test set
-                outputs_fold = model2.predict(x_test_masked)
-        
-                # Calculate the R2 score for the current alpha
-                r2_alpha = r2_score(y_test_masked, outputs_fold)
-        
-                # Update best_alpha and best_score_alpha if necessary
-                if r2_alpha > best_score_alpha_b:
-                    best_alpha_b = alpha
-                    best_score_alpha_b = r2_alpha
-                    best_model_b = model2  # Save the model for the best alpha
-                    best_outputs_b = outputs_fold
-                    best_y_test_b = y_test_masked
-                    best_scores_b = r2_score(best_outputs_b, best_y_test_b)
-        
-            # Store the best alpha, best model, and best outputs for this fold
-            best_alphas_per_fold_b[tuple(fold)] = best_alpha_b  # Convert fold to a tuple
-            best_models_per_fold_b[tuple(fold)] = best_model_b
-            best_outputs_per_fold_b[tuple(fold)] = best_outputs_b
-            best_y_test_per_fold_b[tuple(fold)] = best_y_test_b
-            best_scores_per_fold_b[tuple(fold)] = best_scores_b
-        
-        # Now, use the best alphas and models to calculate the final R2 score and best model
-        combined_outputs_b = np.concatenate(list(best_outputs_per_fold_b.values()))
-        combined_y_test_b = np.concatenate(list(best_y_test_per_fold_b.values()))
-        
-        r2_final = r2_score(combined_y_test_b, combined_outputs_b)    
-        bootstrap_scores.append(r2_final)
-
-    # Model training
-    print("Now Training on data:")
-    i = 0
-    models2 = []
-    outputs2 = []
-    scores2 = []
-    y_total_test_masked2 = []
-
-    best_alphas_per_fold = {}  # Dictionary to store the best alpha for each fold
-    best_models_per_fold = {}  # Dictionary to store the best model for each fold
-    best_outputs_per_fold = {}  # Dictionary to store the best outputs for each fold
-    best_y_test_per_fold = {}  # Dictionary to store the corresponding true labels for each fold
-    best_scores_per_fold = {}  # Dictionary to store the best score for each fold
-
-    for fold in folds_struct_filtered:
-        fold_masked = fold
-        train_indices = [i for i in indices_mask if i not in fold_masked]
-        test_indices = fold_masked
+    # For random folds use the following (for example for one site):
+    # for i, (train_index, test_index) in enumerate(group_kfold_r.split(X_masked, data_masked, groups)):
 
         # Training data:
-        X_train_masked2 = X[train_indices][:, train_indices]
-        data_train_masked2 = data[train_indices]
+        X_train_masked2 = X_masked[train_index][:, train_index]
+        data_train_masked2 = data_masked[train_index]
 
         # Testing data:
-        x_test_masked2 = X[test_indices][:, train_indices]
-        y_test_masked2 = data[test_indices]
+        x_test_masked2 = X_masked[test_index][:, train_index]
+        y_test_masked2 = data_masked[test_index]
 
-        best_alpha = None
-        best_score_alpha = float('-inf')  # Initialize with a very low score
-        best_model = None
-        best_outputs = None
-        best_y_test = None
+        # you can change it for randomfolds
+        # grid_search = GridSearchCV(Model, param_grid, scoring="r2", verbose=3)
+        # if random folds
+        # grid_search.fit(X_train_masked2, data_train_masked2)
 
-        for alpha in alpha_values:
-            print(f"Training models for alpha = {alpha}")
-            print("Actual folds")
+        # Fit the model with GridSearchCV
+        # if group folds
+        grid_search.fit(X_train_masked2, data_train_masked2, groups=groups[train_index])
 
-            # Create and fit the model
-            model2 = KernelRidge(alpha=alpha, kernel='rbf').fit(X_train_masked2, data_train_masked2)
+        # Get the best parameters
+        best_params = grid_search.best_params_
+        best_kernel = best_params['kernel']
+        best_alpha = grid_search.best_params_['alpha']
 
-            # Make predictions on the test set
-            outputs_fold = model2.predict(x_test_masked2)
+        if 'gamma' in grid_search.best_params_:
+            best_gamma = grid_search.best_params_['gamma']
+        else:
+            best_gamma = None
 
-            # Calculate the R2 score for the current alpha
-            r2_alpha = r2_score(y_test_masked2, outputs_fold)
+        # use the parameters to fit in this fold
 
-            # Update best_alpha and best_score_alpha if necessary
-            if r2_alpha > best_score_alpha:
-                best_alpha = alpha
-                best_score_alpha = r2_alpha
-                best_model = model2  # Save the model for the best alpha
-                best_outputs = outputs_fold
-                best_y_test = y_test_masked2
-                best_scores = r2_score(best_outputs, best_y_test)
-                print("best", best_scores)
+        model = KernelRidge(alpha=best_alpha, gamma=best_gamma, kernel=best_kernel)
+        model.fit(X_train_masked2, data_train_masked2)
 
-        # Store the best alpha, best model, and best outputs for this fold
-        best_alphas_per_fold[tuple(fold)] = best_alpha  # Convert fold to a tuple
-        best_models_per_fold[tuple(fold)] = best_model
-        best_outputs_per_fold[tuple(fold)] = best_outputs
-        best_y_test_per_fold[tuple(fold)] = best_y_test
-        best_scores_per_fold[tuple(fold)] = best_scores
+        combined_y_test.extend(y_test_masked2)
+        predictions_test = model.predict(x_test_masked2)
+        combined_outputs.extend(predictions_test)
+        r2_score_fold = r2_score(y_test_masked2, predictions_test)
 
-    # Now, use the best alphas and models to calculate the final R2 score and best model
-    combined_outputs = np.concatenate(list(best_outputs_per_fold.values()))
-    combined_y_test = np.concatenate(list(best_y_test_per_fold.values()))
-    combined_fluct = list(best_scores_per_fold.values())
-    r2_final2 = r2_score(combined_y_test, combined_outputs)
+        # Store the result for the fold
+        r2_scores.append(r2_score_fold)
 
-    # Calculate other metrics (uncertainty, Pearson correlation, Spearman correlation)
-    # uncertainty_score = np.std(combined_outputs)
+        print(f"Best alpha for this fold: {best_alpha}")
+        print(f"Best gamma for this fold: {best_gamma}")
+        print(f"R2 for this fold: {r2_score_fold}")
+
+        # Save results in list
+        fold_results = {'fold': i, 'best_params': grid_search.best_params_,
+                        'test_score': r2_score_fold}
+        results_list.append(fold_results)
+
+        # Saving results of each fold
+        with open("output_files/KMER_r2_folds" + str(k) + ".txt", "w") as file:
+            for result in results_list:
+                file.write(f"Fold {result['fold']}:\n")
+                file.write(f"Best parameters: {result['best_params']}\n")
+                file.write(f"Score: {result['test_score']}\n\n")
+
+        with open("output_files/KMER_r2_folds_" + str(k) + ".txt", "w") as file:
+            for r2 in r2_scores:
+                file.write(f"r^2 {r2}\n")
+
+    # Calculate the average R2 and standard deviation
+    average_r2 = np.mean(r2_scores)
+    r2_cv_fluctuation = np.std(r2_scores)
+
+    print(f"Average R2: {average_r2}")
+    print(f"Standard deviation of R2: {r2_cv_fluctuation}")
+    uncertainty_score = r2_cv_fluctuation
+    print("Uncertainty", uncertainty_score)
+    print("Real age", combined_y_test)
+    print("Predicted age", combined_outputs)
+    combined_y_test = np.array(combined_y_test)
+    combined_outputs = np.array(combined_outputs)
+
+    r2_result = r2_score(combined_y_test, combined_outputs)
+
+    # Calculate other metrics (Pearson correlation, Spearman correlation)
+
     pearson_corr, _ = pearsonr(combined_y_test, combined_outputs)
     spearman_corr, _ = spearmanr(combined_y_test, combined_outputs)
 
-    print("Result of the model:", r2_final2)
+    res = stats.spearmanr(combined_y_test, combined_outputs)
+    mse_ = mean_squared_error(combined_y_test, combined_outputs, squared=False)
+    mea_ = mean_absolute_error(combined_y_test, combined_outputs)
+    mse__ = "%.2f" % mse_
+    mea__ = "%.2f" % mea_
+
+    print("Result of model", res)
+    corr = res[0]
+    corr_ = "%.4f" % corr
+
+    # To plot lineal fit line
+    slope, intercept, r_value, p_value, std_err = stats.linregress(combined_y_test, combined_outputs)
+
+    # To plot prediction
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    ax.set_title('Age prediction with RR Channel: ' + str(k))
+    plt.axhline(0, color='grey', linestyle='dashed', linewidth=1,
+                label="\n RR RMSE: "+str(mse__)+" MEA: "+str(mea__)+"\n R spearman : "+str(corr_))
+    plt.scatter(combined_y_test, combined_outputs, alpha=0.5, color="blue")
+    plt.plot(combined_y_test,  slope*np.array(combined_y_test) + intercept, 'grey', alpha=0.75)
+    plt.xlabel('Real age')
+    plt.ylabel('Predicted age')
+    plt.ylim([-10, 100])
+    plt.xlim([0, 102])
+    plt.legend(loc='upper left')
+    figname = "plots/KMER_pred_vs_real_" + str(k) + "_eeg.png"
+    fig.tight_layout()
+    plt.savefig(figname, dpi=200)
+
+    res2 = stats.spearmanr(combined_y_test, (combined_outputs-combined_y_test))
+    corr2 = res2[0]
+    corr2_ = "%.4f" % corr2
+
+    # plot y_pred - y_test vs. y_test
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    ax.set_title('Delta in age prediction with RR Channel: ' + str(k))
+    slope, intercept, r_value, p_value, std_err = stats.linregress(combined_y_test, combined_outputs - combined_y_test)
+    plt.scatter(combined_y_test, np.array(combined_outputs) - combined_y_test, color="cyan", alpha=0.75)
+    plt.plot(combined_y_test,  slope*np.array(combined_y_test) + intercept, 'grey',
+             alpha=0.75, label="R spearman : "+str(corr2_))
+    plt.ylim([-100, 100])
+    plt.xlabel("Real age")
+    plt.ylabel("(Predicted - Real) age")
+    plt.axhline(0, color='grey', linestyle='dashed', linewidth=1)
+    plt.legend()
+    figname = "plots/KMER_error_" + str(k) + "r_eeg.png"
+    fig.tight_layout()
+    plt.savefig(figname, dpi=200)
+
+    print("Result of the model:", r2_result)
 
     # Save results of predictions to a text file:
     with open("output_files/KMER_prediction_" + filename + ".txt", "w") as f:
         for j in range(len(combined_y_test)):
             f.write(str(combined_y_test[j]) + "\t" + str(combined_outputs[j]) + "\n")
 
+    with open("output_files/KMER_mae_" + str(filename) + ".txt", "w") as file:
+        file.write("MAE" + "\t" + str(mea_) + "\n")
+
     print("Done Kernel Ridge Regression Analysis")
-    print("result", r2_final2)
 
     # Save the R2-score and correlation results for this file
     with open("output_files/KMER_r2_" + str(filename) + ".txt", "w") as f:
-        f.write(f"r^2 {r2_final2}\n")
-        f.write(f"r^2 error {np.std(bootstrap_scores)}\n")
+        f.write(f"r^2 {r2_result}\n")
+        f.write(f"r^2 error {r2_cv_fluctuation}\n")
         f.write(f"Pearson Corr: {pearson_corr}\n")
         f.write(f"Spearman Corr: {spearman_corr}\n")
 
     print("Next File if any")
+    results.append((k, r2_result))
+
+# Generate output table
+with open("output_files/full_KMER_r2.txt", "w") as f:
+    f.write("k\tR2 per channel\n")
+    for k, result in results:
+        f.write(f"{k}\t{result}\n")
+
 print("Done!")
