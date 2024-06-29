@@ -2,7 +2,7 @@
 # Kernel Mean Embbeading Regression (KMER) or Kernel Ridge Regression with EEG frequency spectrum used for Age prediction:
 
 This is the framework used for the paper "Predicting subject traits from brain spectral signatures: a case for brain ageing"
-
+[paper](https://www.biorxiv.org/content/10.1101/2023.11.02.565261v1)
 This repository contains code to perform age prediction applying BR, KRR and KMER using EEG from the HarMNqEEG (https://doi.org/10.1016/j.neuroimage.2022.119190) data set based on the frequency content and using  Maximum Mean Discrepancy with different kernels.
 
 Multinational EEG cross-spectrum and anonymized metadata come from 9 countries, 12 devices, and 14 sites, including 1966 subjects, and is hosted in \url{https://www.synapse.org/} with id: $syn26712693$. Complete access is possible through registration and login to the system.
